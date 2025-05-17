@@ -1,0 +1,7 @@
+streamlit
+pandas
+openai
+numpy
+geopandas
+matplotlib
+plotly==5.20.0
