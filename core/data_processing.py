@@ -43,12 +43,11 @@ def load_real_election_data():
     """Loads a predefined DataFrame of real election results (e.g., 2020)."""
     
     real_results = {
-        "STATE": ["CALIFORNIA", "TEXAS", "NEW YORK", "FLORIDA", "OHIO", "PENNSYLVANIA",
-                  "ILLINOIS", "MICHIGAN", "GEORGIA", "ARIZONA"],
+        "STATE": ["CALIFORNIA", "TEXAS", "NEW YORK", "FLORIDA", "OHIO", "PENNSYLVANIA", "ILLINOIS", "MICHIGAN", "GEORGIA", "ARIZONA"],
         "Democrat_real_percent": [63.5, 46.5, 60.9, 47.9, 45.2, 50.0, 57.9, 50.6, 49.5, 49.4],
         "Republican_real_percent": [34.3, 52.1, 37.7, 51.2, 53.3, 48.8, 40.6, 47.8, 49.3, 49.1],
-        "Winner_real": ["Democrat", "Republican", "Democrat", "Republican", "Republican",
-                   "Democrat", "Democrat", "Democrat", "Democrat", "Democrat"]
+        "Winner_real": ["Democrat", "Republican", "Democrat", "Republican", "Republican", "Democrat", "Democrat", "Democrat", "Democrat", "Democrat"],
+        "Block": ["solidly Democratic", "solidly Republican", "solidly Democratic", "swing state", "swing state", "swing state", "solidly Democratic", "swing state", "swing state", "swing state"]
     }
     
     real_results_df = pd.DataFrame(real_results)
@@ -65,13 +64,12 @@ def process_simulated_votes(profiles_df):
         st.error("'Vote' column not found in profiles. Simulation might have failed or not run.")
         return profiles_df # Return original if 'Vote' is missing
 
-    # Clean and map votes
-    # Ensure 'Vote' column is string type before applying string methods
-    profiles_df['Vote_cleaned'] = profiles_df['Vote'].astype(str).str.strip().str[:1]
-    profiles_df['Vote_Party'] = profiles_df['Vote_cleaned'].map({"1": "Democrat", "2": "Republican", "Undecided": "Undecided"})
+    # Define a mapping for votes
+    vote_map = {"1": "Democrat", "2": "Republican"}
 
-    # Handle cases where mapping might result in NaN (if 'Vote_cleaned' was not "1", "2", or "Undecided")
-    profiles_df['Vote_Party'].fillna("Undecided", inplace=True) # Or "Other", "Invalid"
+    # Apply the mapping. Use .get to provide a default value ('Undecided') for any vote not in the map.
+    profiles_df['Vote_Party'] = profiles_df['Vote'].astype(str).apply(lambda x: vote_map.get(x.strip(), "Undecided"))
+
     return profiles_df
 
 def aggregate_results_by_state(profiles_with_party_votes_df):

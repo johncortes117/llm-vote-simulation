@@ -1,6 +1,7 @@
 import openai
 import streamlit as st
 import numpy as np
+from .schemas import NumericVote
 
 def get_openai_client():
     """Initializes and returns the OpenAI client using API key from Streamlit secrets."""
@@ -38,11 +39,18 @@ def get_voting_response(prompt_content, client):
     if not client:
         return "Error_Client_Not_Initialized"
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt_content}]
+        response = client.responses.parse(
+            model="gpt-4o-mini",
+            input=[
+                {"role": "system", "content": "Analyze the voter's profile and cast a vote based on the provided schema"},
+                {"role": "user", "content": prompt_content},
+            ],
+            text_format=NumericVote,
         )
-        return response.choices[0].message.content
+        vote = response.output_parsed
+        print(f"Vote received: {vote.vote}")
+        print(f"Vote type: {type(vote.vote)}")
+        return vote.vote
     except Exception as e:
         st.warning(f"API Call Error: {e}")
         return f"Error_API_Call: {str(e)}"
@@ -57,34 +65,20 @@ def run_repeated_simulations(prompt_content, client, repetitions=3):
 
     raw_votes = []
     for _ in range(repetitions):
-        response = get_voting_response(prompt_content, client)
-        if "Error_API_Call" in response or "Error_Client_Not_Initialized" in response :
-            # If an API call fails, we might not want to count this iteration
-            # or we could have a strategy to retry, for now, we skip this vote.
-            continue
-        raw_votes.append(response.strip()[:1]) # Get the first character (hopefully "1" or "2")
+        vote = get_voting_response(prompt_content, client)
+        raw_votes.append(vote)
 
-    # Filter for valid votes ("1" or "2") and convert to integers
-    int_votes = [int(v) for v in raw_votes if v in ["1", "2"]]
+    if not raw_votes:
+        return "Undecided"
 
-    if not int_votes:
-        return "Undecided" # Or "Error_No_Valid_Votes_Collected"
-
-    # Count occurrences of 1 and 2
-    counts = np.bincount(np.array(int_votes))
-
-    count_1 = counts[1] if len(counts) > 1 else 0
-    count_2 = counts[2] if len(counts) > 2 else 0
+    count_1 = raw_votes.count(1)
+    count_2 = raw_votes.count(2)
 
     if count_1 > count_2:
         return "1"  # Democrat
     elif count_2 > count_1:
         return "2"  # Republican
-    elif count_1 == count_2 and count_1 > 0: # Tie between 1 and 2
-        # In case of a tie in repeated simulations for a single profile,
-        # we can default (e.g., to "1"), or mark as "Undecided".
-        # For now, let's default to "1" as a simple tie-breaking rule.
-        # A more sophisticated approach might be needed depending on desired behavior.
-        return "1" # Default tie-break
-    else: # No clear majority, or no valid votes recorded
+    elif count_1 == count_2 and count_1 > 0:
+        return "1"  # Tie-breaker defaults to 1
+    else:
         return "Undecided"
